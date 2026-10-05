@@ -1,0 +1,515 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Moment of Inertia Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: header, two rotors side by side (stacked on phones), shared sliders, one-line verdict, angular velocity chart. */
+:root {
+  --bg: #edf0f3;
+  --surface: #f9fafb;
+  --fg: #13202b;
+  --muted: #566677;
+  --line: #d2d9e0;
+  --a: #086a7a;
+  --b: #b8431a;
+  --on-accent: #ffffff;
+  --font-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-data: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1620;
+    --surface: #16212c;
+    --fg: #e5ecf2;
+    --muted: #92a3b3;
+    --line: #2a3947;
+    --a: #45c5d8;
+    --b: #ff9561;
+    --on-accent: #0b1118;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1620;
+  --surface: #16212c;
+  --fg: #e5ecf2;
+  --muted: #92a3b3;
+  --line: #2a3947;
+  --a: #45c5d8;
+  --b: #ff9561;
+  --on-accent: #0b1118;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.wrap {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 4.5vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.lede { margin: 8px 0 0; color: var(--muted); max-width: 62ch; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+.rotors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.rotor { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rhead h2 { display: flex; align-items: center; gap: 8px; }
+.tag {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--on-accent);
+}
+.tagA { background: var(--a); }
+.tagB { background: var(--b); }
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 0.72rem var(--font-data);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.status.on { color: var(--fg); }
+.rotor[data-k="A"] .status.on i { background: var(--a); }
+.rotor[data-k="B"] .status.on i { background: var(--b); }
+
+canvas { display: block; width: 100%; max-width: 100%; }
+.rotor canvas { aspect-ratio: 4 / 3; background: var(--bg); border-radius: 6px; }
+
+.ctl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: baseline;
+}
+.ctl label { font-weight: 500; }
+.ctl output {
+  font: 500 0.9rem var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+.ctl input[type="range"] { grid-column: 1 / -1; width: 100%; height: 28px; margin: 0; }
+#rA { accent-color: var(--a); }
+#rB { accent-color: var(--b); }
+#mass, #torque { accent-color: var(--fg); }
+
+.formula {
+  margin: 0;
+  font: 400 0.8rem var(--font-data);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.reads {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.reads dt {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.reads dd {
+  margin: 0;
+  font: 500 1.35rem var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.shared {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+  align-items: end;
+}
+.actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+button {
+  font: inherit;
+  font-weight: 500;
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: 1px solid var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+  cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+button:hover { opacity: 0.88; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+#clock { margin-left: auto; font: 400 0.85rem var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.verdict { margin: 0; font-size: 1.05rem; max-width: 72ch; text-wrap: pretty; }
+.chart { display: flex; flex-direction: column; gap: 10px; }
+.chart canvas { aspect-ratio: 2.3 / 1; }
+.note { margin: 0; color: var(--muted); font-size: 0.85rem; max-width: 72ch; }
+
+@media (max-width: 640px) {
+  .rotors, .shared { grid-template-columns: minmax(0, 1fr); }
+  .chart canvas { aspect-ratio: 4 / 3; }
+  .card { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}
+</style>
+
+<main class="wrap">
+  <header>
+    <h1>Moment of Inertia Lab</h1>
+    <p class="lede">Both rotors get the same push. Move the weights in or out and compare how fast each one ends up spinning.</p>
+  </header>
+
+  <section class="rotors" aria-label="Rotors">
+    <article class="card rotor" data-k="A">
+      <div class="rhead">
+        <h2><span class="tag tagA">A</span>Rotor A</h2>
+        <span class="status on" id="stA"><i></i><span>Torque on</span></span>
+      </div>
+      <canvas id="cvA" role="img" aria-label="Top view of rotor A, a rod with a weight at each end, spinning about its centre"></canvas>
+      <div class="ctl">
+        <label for="rA">Weight distance from axis</label>
+        <output id="rAo" for="rA"></output>
+        <input id="rA" type="range" min="0.3" max="1.5" step="0.05" value="0.4">
+      </div>
+      <p class="formula" id="fA"></p>
+      <dl class="reads">
+        <div><dt>Acceleration α (rad/s²)</dt><dd id="alA">0</dd></div>
+        <div><dt>Velocity ω (rad/s)</dt><dd id="wA">0</dd></div>
+        <div><dt>Speed (rpm)</dt><dd id="rpmA">0</dd></div>
+      </dl>
+    </article>
+
+    <article class="card rotor" data-k="B">
+      <div class="rhead">
+        <h2><span class="tag tagB">B</span>Rotor B</h2>
+        <span class="status on" id="stB"><i></i><span>Torque on</span></span>
+      </div>
+      <canvas id="cvB" role="img" aria-label="Top view of rotor B, a rod with a weight at each end, spinning about its centre"></canvas>
+      <div class="ctl">
+        <label for="rB">Weight distance from axis</label>
+        <output id="rBo" for="rB"></output>
+        <input id="rB" type="range" min="0.3" max="1.5" step="0.05" value="1">
+      </div>
+      <p class="formula" id="fB"></p>
+      <dl class="reads">
+        <div><dt>Acceleration α (rad/s²)</dt><dd id="alB">0</dd></div>
+        <div><dt>Velocity ω (rad/s)</dt><dd id="wB">0</dd></div>
+        <div><dt>Speed (rpm)</dt><dd id="rpmB">0</dd></div>
+      </dl>
+    </article>
+  </section>
+
+  <section class="shared" aria-label="Settings for both rotors">
+    <div class="ctl">
+      <label for="mass">Mass of each weight</label>
+      <output id="massO" for="mass"></output>
+      <input id="mass" type="range" min="1" max="5" step="0.5" value="2">
+    </div>
+    <div class="ctl">
+      <label for="torque">Torque applied (2 s)</label>
+      <output id="torqueO" for="torque"></output>
+      <input id="torque" type="range" min="0.5" max="5" step="0.5" value="2">
+    </div>
+    <div class="actions">
+      <button id="replay" type="button">Replay</button>
+      <button id="pause" type="button" class="ghost">Pause</button>
+      <output id="clock">t = 0.0 s</output>
+    </div>
+  </section>
+
+  <p class="verdict" id="verdict"></p>
+
+  <section class="card chart" aria-label="Angular velocity over time">
+    <h2>Angular velocity over time</h2>
+    <canvas id="cvChart" role="img" aria-label="Line chart of angular velocity against time for rotor A and rotor B"></canvas>
+  </section>
+
+  <p class="note">The torque acts for 2 seconds, then stops and each rotor keeps its speed. I = 2mr² treats each weight as a point mass on a rod with no mass of its own.</p>
+</main>
+
+<script>
+(() => {
+  const PUSH_T = 2, T_MAX = 8, DT = 1 / 240, SAMPLE = 0.02;
+  const MONO = "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace";
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const el = {
+    rA: $('rA'), rB: $('rB'), mass: $('mass'), torque: $('torque'),
+    rAo: $('rAo'), rBo: $('rBo'), massO: $('massO'), torqueO: $('torqueO'),
+    fA: $('fA'), fB: $('fB'), verdict: $('verdict'),
+    alA: $('alA'), wA: $('wA'), rpmA: $('rpmA'),
+    alB: $('alB'), wB: $('wB'), rpmB: $('rpmB'),
+    stA: $('stA'), stB: $('stB'), clock: $('clock'),
+    pause: $('pause'), replay: $('replay'),
+    cvA: $('cvA'), cvB: $('cvB'), cvChart: $('cvChart')
+  };
+  const rot = { A: { th: 0.4, w: 0, I: 1 }, B: { th: 0.4, w: 0, I: 1 } };
+  let t = 0, running = true, hist = [], nextSample = 0, yMax = 8, yStep = 2, last = 0, acc = 0, C = {};
+
+  const fmt = x => String(+x.toFixed(2));
+  const P = () => ({ m: +el.mass.value, tau: +el.torque.value, rA: +el.rA.value, rB: +el.rB.value });
+
+  function readTheme() {
+    const s = getComputedStyle(document.documentElement);
+    const g = n => s.getPropertyValue(n).trim();
+    C = { fg: g('--fg'), muted: g('--muted'), line: g('--line'), surface: g('--surface'),
+          a: g('--a'), b: g('--b'), on: g('--on-accent') };
+  }
+
+  function niceStep(max, n) {
+    const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+  }
+
+  function setup() {
+    const p = P();
+    rot.A.I = 2 * p.m * p.rA * p.rA;
+    rot.B.I = 2 * p.m * p.rB * p.rB;
+    el.rAo.textContent = p.rA.toFixed(2) + ' m';
+    el.rBo.textContent = p.rB.toFixed(2) + ' m';
+    el.massO.textContent = p.m.toFixed(1) + ' kg';
+    el.torqueO.textContent = p.tau.toFixed(1) + ' N·m';
+    el.fA.textContent = `I = 2 × ${p.m.toFixed(1)} × ${p.rA.toFixed(2)}² = ${fmt(rot.A.I)} kg·m²`;
+    el.fB.textContent = `I = 2 × ${p.m.toFixed(1)} × ${p.rB.toFixed(2)}² = ${fmt(rot.B.I)} kg·m²`;
+
+    const top = p.tau * PUSH_T / Math.min(rot.A.I, rot.B.I);
+    yStep = niceStep(top, 5);
+    yMax = Math.ceil(top / yStep - 1e-9) * yStep;
+
+    const hi = rot.A.I >= rot.B.I ? 'A' : 'B', lo = hi === 'A' ? 'B' : 'A';
+    const k = rot[hi].I / rot[lo].I;
+    const d = (hi === 'A' ? p.rA : p.rB) / (hi === 'A' ? p.rB : p.rA);
+    el.verdict.innerHTML = k < 1.005
+      ? 'Both rotors have the same moment of inertia, so the same push gives them the same speed.'
+      : `<strong>Rotor ${hi}</strong>'s weights are ${fmt(d)}× further from the axis, so its moment of inertia is about <strong>${fmt(k)}×</strong> larger (distance counts squared). With the same torque, <strong>Rotor ${lo}</strong> ends up spinning about ${fmt(k)}× faster.`;
+  }
+
+  function record() {
+    if (t >= nextSample && t <= T_MAX + 1e-9) {
+      hist.push({ t, a: rot.A.w, b: rot.B.w });
+      nextSample += SAMPLE;
+    }
+  }
+
+  function step() {
+    const tau = +el.torque.value, on = t < PUSH_T;
+    for (const k of ['A', 'B']) {
+      const r = rot[k];
+      r.w += (on ? tau / r.I : 0) * DT;
+      r.th += r.w * DT;
+    }
+    t += DT;
+    record();
+  }
+
+  function syncPause() { el.pause.textContent = running ? 'Pause' : 'Resume'; }
+
+  function start() {
+    setup();
+    t = 0; nextSample = 0; acc = 0; hist = [];
+    for (const k of ['A', 'B']) { rot[k].th = 0.4; rot[k].w = 0; }
+    running = true;
+    record();
+    if (reduce) { while (t < T_MAX) step(); running = false; }
+    syncPause();
+  }
+
+  function fit(c) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = c.clientWidth, h = c.clientHeight;
+    const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+    if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
+    const ctx = c.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+
+  function drawRotor(cv, k, rm, m, col) {
+    const { ctx, w, h } = fit(cv);
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2, S = Math.min(w, h) * 0.43 / 1.5;
+
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = C.line;
+    for (const d of [0.5, 1, 1.5]) {
+      ctx.beginPath(); ctx.arc(cx, cy, d * S, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.muted;
+    ctx.font = `10px ${MONO}`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for (const d of [0.5, 1, 1.5]) {
+      ctx.fillText(d + ' m', cx + d * S * 0.7071 + 3, cy + d * S * 0.7071 + 6);
+    }
+
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, rm * S, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    const ca = Math.cos(rot[k].th), sa = Math.sin(rot[k].th), L = rm * S;
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - L * ca, cy - L * sa); ctx.lineTo(cx + L * ca, cy + L * sa); ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    const rad = 6 + 4 * Math.sqrt(m);
+    for (const s of [1, -1]) {
+      const x = cx + s * L * ca, y = cy + s * L * sa;
+      ctx.fillStyle = col; ctx.strokeStyle = C.surface; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if (s === 1) {
+        ctx.fillStyle = C.on;
+        ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    ctx.fillStyle = C.surface; ctx.strokeStyle = C.fg; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+
+  function drawChart() {
+    const { ctx, w, h } = fit(el.cvChart);
+    ctx.clearRect(0, 0, w, h);
+    const m = { l: 46, r: 30, t: 24, b: 34 };
+    const pw = w - m.l - m.r, ph = h - m.t - m.b;
+    const X = v => m.l + v / T_MAX * pw, Y = v => m.t + ph - v / yMax * ph;
+    const dec = Math.max(0, -Math.floor(Math.log10(yStep)));
+
+    ctx.font = `11px ${MONO}`; ctx.lineWidth = 1;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let v = 0; v <= yMax + 1e-9; v += yStep) {
+      const y = Y(v);
+      ctx.strokeStyle = v === 0 ? C.muted : C.line;
+      ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText(v.toFixed(dec), m.l - 8, y);
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let s = 0; s <= T_MAX; s += 2) {
+      ctx.fillStyle = C.muted; ctx.fillText(String(s), X(s), m.t + ph + 8);
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = C.muted;
+    ctx.fillText('ω (rad/s)', m.l, 4);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText('time (s)', m.l + pw, h - 2);
+
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = C.muted;
+    ctx.beginPath(); ctx.moveTo(X(PUSH_T), m.t); ctx.lineTo(X(PUSH_T), m.t + ph); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = C.muted;
+    ctx.fillText('torque off', X(PUSH_T) + 6, m.t + 4);
+
+    const n = hist.length;
+    if (!n) return;
+    const lastPt = hist[n - 1];
+    ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+    for (const [key, col, name] of [['a', C.a, 'A'], ['b', C.b, 'B']]) {
+      ctx.strokeStyle = col;
+      ctx.beginPath();
+      hist.forEach((p, i) => { i ? ctx.lineTo(X(p.t), Y(p[key])) : ctx.moveTo(X(p.t), Y(p[key])); });
+      ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(X(lastPt.t), Y(lastPt[key]), 4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.font = `600 12px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const yA = Y(lastPt.a), yB = Y(lastPt.b);
+    const close = Math.abs(yA - yB) < 14;
+    ctx.fillStyle = C.a; ctx.fillText('A', X(lastPt.t) + 9, close ? yA - 8 : yA);
+    ctx.fillStyle = C.b; ctx.fillText('B', X(lastPt.t) + 9, close ? yB + 8 : yB);
+  }
+
+  function updateReads() {
+    const tau = +el.torque.value, on = t < PUSH_T;
+    for (const k of ['A', 'B']) {
+      const r = rot[k];
+      el['al' + k].textContent = (on ? tau / r.I : 0).toFixed(1);
+      el['w' + k].textContent = r.w.toFixed(1);
+      el['rpm' + k].textContent = Math.round(r.w * 60 / (2 * Math.PI));
+      const st = el['st' + k];
+      st.classList.toggle('on', on);
+      st.lastElementChild.textContent = on ? 'Torque on' : 'Coasting';
+    }
+    el.clock.textContent = 't = ' + t.toFixed(1) + ' s';
+  }
+
+  function frame(now) {
+    if (!last) last = now;
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    if (running) {
+      acc += dt;
+      while (acc >= DT) { step(); acc -= DT; }
+    }
+    const p = P();
+    drawRotor(el.cvA, 'A', p.rA, p.m, C.a);
+    drawRotor(el.cvB, 'B', p.rB, p.m, C.b);
+    drawChart();
+    updateReads();
+    requestAnimationFrame(frame);
+  }
+
+  for (const id of ['rA', 'rB', 'mass', 'torque']) el[id].addEventListener('input', start);
+  el.replay.addEventListener('click', start);
+  el.pause.addEventListener('click', () => { running = !running; syncPause(); });
+
+  readTheme();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  start();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
